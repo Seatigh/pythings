@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}{{ region.name }} Region{% endblock %}
+
+{% block content %}
+    <h1>{{ region.name }} Region</h1>
+    <h2>Generation: {{ region.generation }}</h2>
+    <img src="{{ region.map }}" alt="Map of {{ region.name }}" class="region-map">
+    
+    <h2>Pokédex</h2>
+    <div class="pokemon-list">
+        {% for pokemon in region.pokedexes %}
+        <div class="pokemon-card">
+            <div class="card-inner">
+                <div class="card-front">
+                    <img src="{{ pokemon.sprite }}" alt="{{ pokemon.name }}" class="sprite-front">
+                    <div class="pokemon-info">
+                        <h2>#{{ pokemon.id }} - {{ pokemon.name.capitalize() }}</h2>
+                        <p><strong>Types:</strong> {{ pokemon.types | join(', ') }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% endblock %}

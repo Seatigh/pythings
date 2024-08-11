@@ -1,45 +1,51 @@
 {% extends "base.html" %}
 
-{% block title %}Pokémon List{% endblock %}
+{% block title %}Pokémon Search{% endblock %}
 
 {% block content %}
-    <h1>Pokémon List</h1>
-    <div class="pokemon-list">
-        {% for pokemon in pokemon_list %}
-        <div class="pokemon-card">
-            <div class="card-inner">
-                <!-- Front of the card -->
-                <div class="card-front">
-                    <img src="{{ pokemon.sprite }}" alt="{{ pokemon.name }}" class="sprite-front">
-                    <div class="pokemon-info">
-                        <h2>#{{ pokemon.id }} - {{ pokemon.name }}</h2>
-                    </div>
-                </div>
+    <h1>Pokémon Search</h1>
+    <form method="POST" class="search-form">
+        <input type="text" name="pokemon_name" placeholder="Search for a Pokémon" class="search-input">
+        <button type="submit" class="search-button">Search</button>
+    </form>
 
-                <!-- Back of the card -->
-                <div class="card-back">
-                    <img src="{{ pokemon.sprite }}" alt="{{ pokemon.name }}" class="sprite-small">
-                    <h2>#{{ pokemon.id }} - {{ pokemon.name }}</h2>
-                    <p><strong>Description:</strong> {{ pokemon.description }}</p>
-                    <p><strong>Types:</strong> {{ pokemon.types | join(', ') }}</p>
-                    <p><strong>Abilities:</strong></p>
-                    <ul>
-                        {% for ability in pokemon.abilities %}
-                            <li>
-                                {% if ability.is_hidden %}
-                                    <span class="hidden-ability">{{ ability.name }} (Hidden)</span> - {{ ability.description }}
-                                {% else %}
-                                    {{ ability.name }} - {{ ability.description }}
-                                {% endif %}
-                            </li>
-                        {% endfor %}
-                    </ul>
-                    <p><strong>Height:</strong> {{ pokemon.height }} dm</p>
-                    <p><strong>Weight:</strong> {{ pokemon.weight }} hg</p>
-                    <button onclick="playCry('{{ pokemon.id }}')">Play Cry</button>
-                </div>
+    {% if search_result %}
+    <div class="pokemon-card single">
+        <div class="card-front">
+            <img src="{{ search_result.sprite }}" alt="{{ search_result.name }}" class="sprite-front">
+            <div class="pokemon-info">
+                <h2>#{{ search_result.id }} - {{ search_result.name }}</h2>
+                <p><strong>Description:</strong> {{ search_result.description }}</p>
+                <p><strong>Types:</strong> {{ search_result.types | join(', ') }}</p>
+                <p><strong>Abilities:</strong></p>
+                <ul>
+                    {% for ability in search_result.abilities %}
+                        <li>
+                            {% if ability.is_hidden %}
+                                <span class="hidden-ability">{{ ability.name }} (Hidden)</span>
+                            {% else %}
+                                {{ ability.name }}
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+                <p><strong>Height:</strong> {{ search_result.height }} dm</p>
+                <p><strong>Weight:</strong> {{ search_result.weight }} hg</p>
+                <p><strong>Capture Locations:</strong> {{ search_result.locations | join(', ') }}</p>
+                <button onclick="playCry('{{ search_result.id }}')">Play Cry</button>
             </div>
+        </div>
+    </div>
+    {% else %}
+    <h2>Pokemon Regions</h2>
+    <div class="regions">
+        {% for region in regions %}
+        <div class="region-card">
+            <a href="{{ url_for('region', region_name=region.name) }}">
+                <button class="region-button">{{ region.name.capitalize() }}</button>
+            </a>
         </div>
         {% endfor %}
     </div>
+    {% endif %}
 {% endblock %}

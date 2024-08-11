@@ -1,60 +1,104 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 import requests
-from datetime import datetime
+import re
 
 app = Flask(__name__)
 
-def get_pokemon_data(limit=15):
-    url = f'https://pokeapi.co/api/v2/pokemon?limit={limit}'
+def get_pokemon_data(pokemon_name):
+    url = f"https://pokeapi.co/api/v2/pokemon/{pokemon_name.lower()}"
+    species_url = f"https://pokeapi.co/api/v2/pokemon-species/{pokemon_name.lower()}"
+
     response = requests.get(url)
-    pokemon_list = []
+    species_response = requests.get(species_url)
 
-    if response.status_code == 200:
-        data = response.json()
-        for item in data['results']:
-            pokemon_data = requests.get(item['url']).json()
-            
-            types = [t['type']['name'] for t in pokemon_data['types']]
-            
-            abilities = []
-            for ability in pokemon_data['abilities']:
-                ability_data = requests.get(ability['ability']['url']).json()
-                abilities.append({
-                    'name': ability['ability']['name'],
-                    'is_hidden': ability['is_hidden'],
-                    'description': ability_data['effect_entries'][0]['short_effect']
+    if response.status_code != 200 or species_response.status_code != 200:
+        return None
+
+    pokemon = response.json()
+    species = species_response.json()
+
+    pokemon_data = {
+        'id': pokemon['id'],
+        'name': pokemon['name'].capitalize(),
+        'sprite': pokemon['sprites']['front_default'],
+        'types': [t['type']['name'] for t in pokemon['types']],
+        'abilities': [{'name': a['ability']['name'], 'is_hidden': a['is_hidden']} for a in pokemon['abilities']],
+        'weight': pokemon['weight'],
+        'height': pokemon['height'],
+        'description': species['flavor_text_entries'][0]['flavor_text'],
+        'locations': []  # We'll add location data later if available.
+    }
+
+    # Get locations
+    location_area_encounters = requests.get(pokemon['location_area_encounters']).json()
+    for location in location_area_encounters:
+        location_name = location['location_area']['name']
+        pokemon_data['locations'].append(location_name)
+
+    return pokemon_data
+
+def get_regions():
+    url = "https://pokeapi.co/api/v2/region/"
+    response = requests.get(url)
+    if response.status_code != 200:
+        return None
+    regions = response.json()['results']
+    return regions
+
+def get_region_details(region_name):
+    url = f"https://pokeapi.co/api/v2/region/{region_name.lower()}"
+    response = requests.get(url)
+    if response.status_code != 200:
+        return None
+    region = response.json()
+
+    pokedexes = []
+    seen_pokemon = set()  # Para evitar duplicados
+
+    for pokedex in region['pokedexes']:
+        pokedex_data = requests.get(pokedex['url']).json()
+        for entry in pokedex_data['pokemon_entries']:
+            pokemon_id = int(re.sub('[^0-9]', '', entry['pokemon_species']['url'][-4:-1]))  # Este es el número de la Pokédex nacional
+
+            if pokemon_id not in seen_pokemon:  # Verificamos si el Pokémon ya fue agregado
+                seen_pokemon.add(pokemon_id)
+
+                # Obtenemos información adicional del Pokémon
+                pokemon_details = requests.get(f"https://pokeapi.co/api/v2/pokemon/{pokemon_id}").json()
+
+                pokedexes.append({
+                    'name': entry['pokemon_species']['name'],
+                    'id': pokemon_id,
+                    'sprite': f"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{pokemon_id}.png",
+                    'types': [t['type']['name'] for t in pokemon_details['types']]
                 })
-            
-            species_data = requests.get(pokemon_data['species']['url']).json()
-            description = ""
-            for entry in species_data['flavor_text_entries']:
-                if entry['language']['name'] == 'en':
-                    description = entry['flavor_text']
-                    break
-            
-            pokemon = {
-                'id': pokemon_data['id'],
-                'name': pokemon_data['name'].capitalize(),
-                'sprite': pokemon_data['sprites']['front_default'],
-                'types': types,
-                'abilities': abilities,
-                'description': description,
-                'height': pokemon_data['height'],
-                'weight': pokemon_data['weight'],
-            }
-            pokemon_list.append(pokemon)
 
-    return sorted(pokemon_list, key=lambda x: x['id'])
+    pokedexes.sort(key=lambda x: x['id'])
 
-@app.route('/')
+    region_data = {
+        'name': region['name'].capitalize(),
+        'generation': region['main_generation']['name'].capitalize(),
+        'map': region['locations'][0]['url'] if region['locations'] else None,  # Mapa de la región
+        'pokedexes': pokedexes
+    }
+
+    return region_data
+
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    today_date = datetime.now().strftime('%Y-%m-%d')
-    pokemon_list = get_pokemon_data(limit=15)
-    return render_template('index.html', pokemon_list=pokemon_list, today_date=today_date)
+    search_result = None
+    regions = get_regions()
 
-@app.route('/about')
-def about():
-    return render_template('about.html')
+    if request.method == 'POST':
+        pokemon_name = request.form['pokemon_name']
+        search_result = get_pokemon_data(pokemon_name)
+
+    return render_template('index.html', search_result=search_result, regions=regions)
+
+@app.route('/region/<region_name>')
+def region(region_name):
+    region_details = get_region_details(region_name)
+    return render_template('region.html', region=region_details)
 
 if __name__ == '__main__':
     app.run(debug=True)
