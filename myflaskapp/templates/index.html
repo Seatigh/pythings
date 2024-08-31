@@ -16,7 +16,10 @@
             <div class="pokemon-info">
                 <h2>#{{ search_result.id }} - {{ search_result.name }}</h2>
                 <p><strong>Description:</strong> {{ search_result.description }}</p>
-                <p><strong>Types:</strong> {{ search_result.types | join(', ') }}</p>
+                <p><strong>Types</strong></p>
+                {% for type in search_result.types %}
+                    <img src="{{ types[type]['sprite'] }}" alt="type {{ type }}"/>
+                {% endfor %}
                 <p><strong>Abilities:</strong></p>
                 <ul>
                     {% for ability in search_result.abilities %}

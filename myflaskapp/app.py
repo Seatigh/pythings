@@ -1,6 +1,8 @@
-from flask import Flask, render_template, request
+import os
+from flask import Flask, jsonify, render_template, request
 import requests
 import re
+from PIL import Image
 
 app = Flask(__name__)
 
@@ -84,16 +86,71 @@ def get_region_details(region_name):
 
     return region_data
 
+def get_type_sprite(type_url):
+    response = requests.get(type_url)
+
+    if response.status_code == 200:
+        data = response.json()
+
+        sprites = data['sprites']
+        last_gen = sprites[list(sprites)[-1]]
+        sprite = last_gen[list(last_gen)[-1]]
+
+        return sprite['name_icon']
+
+def get_types():
+     # URL de la API para obtener todos los tipos de Pokémon
+    url = 'https://pokeapi.co/api/v2/type/'
+
+    # Realizar la solicitud a la API
+    response = requests.get(url)
+
+    # Si la solicitud es exitosa (código de estado 200)
+    if response.status_code == 200:
+        data = response.json()
+        types = data['results']
+
+        # Crear un diccionario donde la clave es el nombre del tipo y el valor es la URL
+        types_dict = {type_info['name']: type_info['url'] for type_info in types}
+
+        # Ordenar el diccionario por el nombre de los tipos
+        sorted_types_dict = dict(sorted(types_dict.items()))
+
+        types_with_path = {}
+
+        for type_name, type_url in sorted_types_dict.items():
+            # Obtener el sprite más actualizado para el tipo
+            latest_sprite = get_type_sprite(type_url)
+
+            # Agregar el tipo al diccionario con su sprite
+            if latest_sprite is not None:
+                types_with_path[type_name] = {
+                    'url': type_url,
+                    'sprite': latest_sprite
+                }
+        
+        return types_with_path
+
+    # En caso de error en la solicitud
+    return jsonify({'error': 'Could not fetch types from API'}), 500
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     search_result = None
     regions = get_regions()
+    types=get_types()
+
+    print(types)
 
     if request.method == 'POST':
         pokemon_name = request.form['pokemon_name']
         search_result = get_pokemon_data(pokemon_name)
 
-    return render_template('index.html', search_result=search_result, regions=regions)
+    return render_template('index.html', search_result=search_result, regions=regions, types=types)
+
+@app.route('/about', methods=['GET'])
+def about():
+    return render_template('about.html')    
 
 @app.route('/region/<region_name>')
 def region(region_name):
